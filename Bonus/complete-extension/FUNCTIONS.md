@@ -1,4 +1,4 @@
-# PeerBridge — Function Manual
+# complete-extension — Function Manual
 
 Complete reference for every function in the extension. Explains what each function does, why it exists, which files use it, and which FR/NFR it satisfies.
 
