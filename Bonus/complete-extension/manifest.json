@@ -1,0 +1,85 @@
+{
+  "manifest_version": 3,
+  "name": "PeerBridge",
+  "short_name": "PeerBridge",
+  "version": "1.0.0",
+  "description": "Connects you with a real human peer when AI and search reach their limits.",
+
+  "permissions": [
+    "storage",
+    "scripting",
+    "tabs",
+    "alarms"
+  ],
+
+  "host_permissions": [
+    "https://www.google.com/*",
+    "https://www.bing.com/*",
+    "https://chat.openai.com/*",
+    "https://chatgpt.com/*",
+    "https://claude.ai/*",
+    "https://gemini.google.com/*",
+    "https://*/*"
+  ],
+
+  "background": {
+    "service_worker": "src/background/service-worker.js"
+  },
+
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.google.com/search*",
+        "https://www.bing.com/search*",
+        "https://chat.openai.com/*",
+        "https://chatgpt.com/*",
+        "https://claude.ai/*",
+        "https://gemini.google.com/*"
+      ],
+      "js": [
+        "shared/constants.js",
+        "src/components/suggestion-card.js",
+        "src/content/content-main.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
+    },
+    {
+      "matches": [
+        "https://*/*",
+        "http://*/*"
+      ],
+      "js": [
+        "shared/constants.js",
+        "src/content/form-detector.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+
+  "action": {
+    "default_popup": "src/popup/popup.html",
+    "default_icon": {
+      "16":  "assets/icons/icon-16.png",
+      "32":  "assets/icons/icon-32.png",
+      "48":  "assets/icons/icon-48.png",
+      "128": "assets/icons/icon-128.png"
+    },
+    "default_title": "PeerBridge"
+  },
+
+  "icons": {
+    "16":  "assets/icons/icon-16.png",
+    "32":  "assets/icons/icon-32.png",
+    "48":  "assets/icons/icon-48.png",
+    "128": "assets/icons/icon-128.png"
+  },
+
+  "web_accessible_resources": [
+    {
+      "resources": ["assets/styles/*"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}

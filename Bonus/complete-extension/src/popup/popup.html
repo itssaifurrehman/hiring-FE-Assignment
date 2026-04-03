@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PeerBridge</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+
+  <!--
+    ==========================================================================
+    ONBOARDING VIEW (FR-16, FR-17, FR-18)
+    3-step flow: value explanation → goal context → opt-in confirmation
+    Shown on first install. Skippable at every step (FR-18).
+    ==========================================================================
+  -->
+  <main class="view" id="view-onboarding" role="main" aria-label="PeerBridge onboarding">
+
+    <!-- Progress dots (3 steps) -->
+    <div class="progress" aria-hidden="true">
+      <div class="progress__dot active" id="dot-1"></div>
+      <div class="progress__dot" id="dot-2"></div>
+      <div class="progress__dot" id="dot-3"></div>
+    </div>
+
+    <!-- Step 1: Value explanation -->
+    <section class="step active" id="step-1" aria-label="Step 1 of 3: What PeerBridge does">
+      <div class="step__icon" aria-hidden="true">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+          <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+        </svg>
+      </div>
+      <h1 class="step__title">When AI reaches its limits, a real person can help.</h1>
+      <div class="step__body">
+        <p>PeerBridge sits quietly in your browser. When you're searching for help with a real challenge, or your AI chat isn't resolving it. It suggests a peer who's already navigated the same situation.</p>
+        <ul class="step__list">
+          <li>Works in the background, no new apps</li>
+          <li>Suggests a peer at the right moment</li>
+          <li>One tap to connect, zero friction</li>
+        </ul>
+      </div>
+      <div class="step__actions">
+        <button class="btn btn--primary" id="step1-next">Get started</button>
+        <button class="btn btn--ghost"   id="step1-skip">Skip for now</button>
+      </div>
+    </section>
+
+    <!-- Step 2: Goal context + privacy statement -->
+    <section class="step" id="step-2" aria-label="Step 2 of 3: Your goal context">
+      <div class="step__icon" aria-hidden="true">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"/>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+      </div>
+      <h2 class="step__title">What are you working on?</h2>
+      <div class="step__body">
+        <p>A short description helps us match you with the right peers. Completely optional.</p>
+
+        <!--
+          PRIVACY STATEMENT — shown BEFORE any data is collected (FR-17).
+          Must appear before the textarea, not after.
+        -->
+        <div class="privacy-box" role="note" aria-label="Privacy commitment">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+          <p class="privacy-box__text">
+            <strong>We only use your goal context to find peer matches, never to sell ads.</strong>
+            No browsing data, no form values, no passwords ever leave your device.
+          </p>
+        </div>
+
+        <label for="goal-input" class="field-label">Your current goal or challenge <span class="optional">(optional)</span></label>
+        <textarea
+          class="textarea"
+          id="goal-input"
+          maxlength="200"
+          placeholder="e.g. Considering a career change from engineering to product management…"
+          aria-describedby="char-count-hint"
+        ></textarea>
+        <div class="char-hint" id="char-count-hint" aria-live="polite">
+          <span id="char-count">0</span> / 200
+        </div>
+      </div>
+      <div class="step__actions">
+        <button class="btn btn--primary" id="step2-next">Continue</button>
+        <button class="btn btn--ghost"   id="step2-skip">Skip</button>
+      </div>
+    </section>
+
+    <!-- Step 3: Opt-in confirmation -->
+    <section class="step" id="step-3" aria-label="Step 3 of 3: Confirmation">
+      <div class="step__icon step__icon--success" aria-hidden="true">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+          <polyline points="22 4 12 14.01 9 11.01"/>
+        </svg>
+      </div>
+      <h2 class="step__title">You're all set.</h2>
+      <div class="step__body">
+        <ul class="confirm-list" aria-label="What you've agreed to">
+          <li class="confirm-item">
+            <span class="confirm-item__check" aria-hidden="true">✓</span>
+            PeerBridge will suggest peers at the right moments
+          </li>
+          <li class="confirm-item">
+            <span class="confirm-item__check" aria-hidden="true">✓</span>
+            Your goal context is stored encrypted on this device only
+          </li>
+          <li class="confirm-item">
+            <span class="confirm-item__check" aria-hidden="true">✓</span>
+            No form values, passwords, or PII ever leave your browser
+          </li>
+          <li class="confirm-item">
+            <span class="confirm-item__check" aria-hidden="true">✓</span>
+            You can pause or adjust suggestions any time
+          </li>
+        </ul>
+      </div>
+      <div class="step__actions">
+        <button class="btn btn--primary" id="step3-done">Done</button>
+      </div>
+    </section>
+
+  </main>
+
+  <!--
+    ==========================================================================
+    SETTINGS VIEW (FR-20, FR-21, FR-22, FR-23)
+    Pause toggle, frequency control, goal context update.
+    All changes take effect immediately (FR-23).
+    ==========================================================================
+  -->
+  <main class="view hidden" id="view-settings" role="main" aria-label="PeerBridge settings">
+
+    <!-- Header with logo + pause toggle -->
+    <header class="settings__header">
+      <div class="settings__logo" aria-hidden="true">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+          <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+        </svg>
+      </div>
+      <span class="settings__title">PeerBridge</span>
+
+      <!-- Pause toggle — FR-22: visual state changes when paused -->
+      <button
+        class="pause-toggle"
+        id="pause-toggle"
+        role="switch"
+        aria-checked="true"
+        aria-label="PeerBridge is active — click to pause"
+      ></button>
+    </header>
+
+    <div class="settings__body">
+
+      <!-- Frequency control (FR-20) -->
+      <div class="setting-group">
+        <div class="setting-group__label">Suggestion frequency</div>
+        <div class="freq-control" role="radiogroup" aria-label="Suggestion frequency">
+          <button class="freq-btn active" data-freq="active"  role="radio" aria-checked="true">Active</button>
+          <button class="freq-btn"        data-freq="reduced" role="radio" aria-checked="false">Reduced</button>
+          <button class="freq-btn"        data-freq="paused"  role="radio" aria-checked="false">Paused</button>
+        </div>
+        <p class="setting-hint" id="freq-hint">Active: up to 2 suggestions per session</p>
+      </div>
+
+      <!-- Goal context (FR-20, US-06) -->
+      <div class="setting-group">
+        <div class="setting-group__label">Your goal context</div>
+
+        <!-- Display mode: shows current value, click to edit -->
+        <div
+          class="goal-display"
+          id="goal-display"
+          tabindex="0"
+          role="button"
+          aria-label="Click to edit your goal context"
+        >
+          <span id="goal-display-text" class="goal-display__text goal-display__text--empty">
+            No goal context set — click to add one
+          </span>
+        </div>
+
+        <!-- Edit mode: shown when user clicks display -->
+        <div class="goal-edit" id="goal-edit-area" hidden>
+          <textarea
+            class="textarea"
+            id="goal-edit-input"
+            maxlength="200"
+            placeholder="Describe your current goal or challenge…"
+            aria-label="Edit your goal context"
+          ></textarea>
+          <div class="char-hint" aria-live="polite">
+            <span id="goal-edit-count">0</span> / 200
+          </div>
+          <div class="goal-edit__actions">
+            <button class="btn btn--primary btn--sm" id="goal-save">Save</button>
+            <button class="btn btn--ghost   btn--sm" id="goal-clear">Clear</button>
+            <button class="btn btn--ghost   btn--sm" id="goal-cancel" style="margin-left:auto;">Cancel</button>
+          </div>
+        </div>
+
+        <!-- Confirmation toast (US-06: "Your goal context has been updated.") -->
+        <div class="toast" id="confirm-toast" role="status" aria-live="polite" aria-atomic="true">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          Your goal context has been updated.
+        </div>
+      </div>
+
+    </div>
+
+    <footer class="settings__footer">
+      <span class="settings__version">v1.0.0</span>
+      <a class="settings__privacy" href="https://peerbridge.io/privacy" target="_blank" rel="noopener">Privacy policy</a>
+    </footer>
+
+  </main>
+
+  <!-- JS loaded at end of body for performance -->
+  <script src="popup.js"></script>
+
+</body>
+</html>

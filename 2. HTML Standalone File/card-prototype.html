@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PeerBridge — Suggestion Card Prototype</title>
+  <style>
+    /* Host page simulation — tests card on different backgrounds */
+    :root {
+      --host-bg: #f8f9fa;
+      --host-text: #202124;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --host-bg: #212121;
+        --host-text: #ececec;
+      }
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: var(--host-bg);
+      color: var(--host-text);
+      min-height: 100vh;
+      padding: 32px;
+    }
+
+    /* Simulated search results — test card doesn't overlap content */
+    .host-page {
+      max-width: 652px;
+    }
+
+    .host-page h1 {
+      font-size: 20px;
+      font-weight: 400;
+      margin-bottom: 24px;
+      opacity: 0.7;
+      letter-spacing: -0.01em;
+    }
+
+    .search-result {
+      margin-bottom: 24px;
+    }
+
+    .search-result__url {
+      font-size: 13px;
+      color: #1a73e8;
+      margin-bottom: 2px;
+    }
+
+    .search-result__title {
+      font-size: 18px;
+      color: #1a73e8;
+      margin-bottom: 4px;
+      font-weight: 400;
+      cursor: pointer;
+    }
+
+    .search-result__title:hover { text-decoration: underline; }
+
+    .search-result__snippet {
+      font-size: 14px;
+      line-height: 1.55;
+      color: #4d5156;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .search-result__url,
+      .search-result__title { color: #8ab4f8; }
+      .search-result__snippet { color: #bdc1c6; }
+    }
+
+    /* Demo controls */
+    .demo-controls {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      z-index: 9999;
+    }
+
+    .demo-btn {
+      padding: 6px 12px;
+      border: 1px solid rgba(0,0,0,0.15);
+      border-radius: 6px;
+      background: rgba(255,255,255,0.9);
+      color: #333;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      backdrop-filter: blur(8px);
+      white-space: nowrap;
+    }
+
+    .demo-btn:hover { background: #fff; }
+
+    @media (prefers-color-scheme: dark) {
+      .demo-btn {
+        background: rgba(40,40,50,0.9);
+        color: #ddd;
+        border-color: rgba(255,255,255,0.15);
+      }
+      .demo-btn:hover { background: rgba(50,50,65,0.95); }
+    }
+
+    .demo-label {
+      font-size: 10px;
+      opacity: 0.5;
+      padding: 0 2px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Simulated host page content -->
+  <div class="host-page">
+    <h1>Results for: "should I change careers at 32 — how to decide"</h1>
+
+    <div class="search-result">
+      <div class="search-result__url">reddit.com › careerguidance</div>
+      <div class="search-result__title">Career change at 30+ — what I wish I knew</div>
+      <div class="search-result__snippet">
+        I made the leap at 34 and it was the best decision of my life, but I had no idea how to evaluate
+        the risk. Here's what actually helped me work through the decision...
+      </div>
+    </div>
+
+    <div class="search-result">
+      <div class="search-result__url">hbr.org › career › transitions</div>
+      <div class="search-result__title">How to Know When It's Time to Change Careers</div>
+      <div class="search-result__snippet">
+        Research shows that most people considering career changes take 18 months longer than necessary
+        because they lack access to people who've made the same transition...
+      </div>
+    </div>
+
+    <div class="search-result">
+      <div class="search-result__url">indeed.com › career-development</div>
+      <div class="search-result__title">7 Signs You Should Change Your Career Path</div>
+      <div class="search-result__snippet">
+        Feeling stuck, underpaid, or unfulfilled? Career transitions can be daunting but studies suggest
+        that the risk of staying in the wrong career outweighs the risk of changing...
+      </div>
+    </div>
+  </div>
+
+  <!-- Demo controls -->
+  <div class="demo-controls" role="region" aria-label="Prototype demo controls">
+    <span class="demo-label">DEMO CONTROLS</span>
+    <button class="demo-btn" id="btn-search">Search card</button>
+    <button class="demo-btn" id="btn-ai">AI Chat card (30s auto-dismiss)</button>
+    <button class="demo-btn" id="btn-form">Form card</button>
+    <button class="demo-btn" id="btn-dismiss">Remove card</button>
+  </div>
+
+  <script type="module">
+    // ─── SuggestionCard ─────────────────────────────────────────────────────────
+    // Full implementation — Shadow DOM, interactions, accessibility, dark mode.
+    // This entire file is self-contained. No build step. Open in any browser.
+
+    class SuggestionCard {
+      #shadow = null;
+      #host = null;
+      #rafId = null;
+      #countdownStart = null;
+      #dismissed = false;
+
+      constructor(opts) {
+        this.opts = {
+          matchData: null,
+          pageType: 'search',
+          autoDissmiss: false,
+          onConnect: null,
+          onDismiss: null,
+          onPauseForToday: null,
+          ...opts,
+        };
+      }
+
+      mount() {
+        const existing = document.getElementById('pb-card-host');
+        if (existing) existing.remove();
+
+        this.#host = document.createElement('div');
+        this.#host.id = 'pb-card-host';
+
+        // Shadow DOM — closed mode (FR-09)
+        this.#shadow = this.#host.attachShadow({ mode: 'closed' });
+
+        const style = document.createElement('style');
+        style.textContent = this.#getStyles();
+        this.#shadow.appendChild(style);
+
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = this.#buildHTML();
+        this.#shadow.appendChild(wrapper.firstElementChild);
+
+        this.#bindEvents();
+        document.body.appendChild(this.#host);
+
+        // Accessibility: move focus to card
+        requestAnimationFrame(() => {
+          this.#shadow.querySelector('.pb-card')?.focus();
+        });
+
+        if (this.opts.autoDissmiss) {
+          this.#startCountdown();
+        }
+      }
+
+      #buildHTML() {
+        const peer = this.opts.matchData ?? {};
+        const pageType = this.opts.pageType;
+
+        const suggestionText = pageType === 'ai_chat'
+          ? 'AI can only go so far — connect with someone who has actually been here.'
+          : pageType === 'form'
+          ? 'Someone has navigated this process before. Want a real perspective?'
+          : (peer.suggestionPrompt ?? 'A real person who has been here wants to help.');
+
+        const domain = peer.domain ?? 'Career Transitions';
+        const yearsExp = peer.yearsExperience ?? 8;
+        const availability = peer.availability ?? 'Available now';
+        const availSignal = peer.availabilitySignal ?? 'online';
+        const initials = domain.split(' ').slice(0,2).map(w => w[0]).join('').toUpperCase();
+
+        return `
+          <div
+            class="pb-card"
+            role="dialog"
+            aria-label="Peer connection suggestion"
+            aria-describedby="pb-suggestion-text"
+            tabindex="-1"
+          >
+            <div class="pb-card__accent" aria-hidden="true"></div>
+
+            <div class="pb-card__inner">
+
+              <div class="pb-card__header">
+                <div class="pb-card__icon" aria-hidden="true">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                    <circle cx="9" cy="7" r="4"/>
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                  </svg>
+                </div>
+                <p class="pb-card__suggestion" id="pb-suggestion-text">${suggestionText}</p>
+                <button class="pb-card__close" aria-label="Dismiss" data-action="dismiss">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                    <line x1="18" y1="6" x2="6" y2="18"/>
+                    <line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
+                </button>
+              </div>
+
+              <div class="pb-card__peer" aria-label="Matched peer profile">
+                <div class="pb-peer__avatar" aria-hidden="true">${initials}</div>
+                <div class="pb-peer__info">
+                  <span class="pb-peer__domain">${domain}</span>
+                  <div class="pb-peer__meta">
+                    <span class="pb-peer__exp">${yearsExp}y exp</span>
+                    <span class="pb-peer__sep" aria-hidden="true">·</span>
+                    <span class="pb-peer__avail pb-avail--${availSignal}" role="status">
+                      <span class="pb-avail__dot" aria-hidden="true"></span>
+                      ${availability}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="pb-card__actions">
+                <button class="pb-btn pb-btn--connect" data-action="connect" aria-label="Connect with this peer">
+                  Connect
+                </button>
+                <button class="pb-btn pb-btn--dismiss" data-action="dismiss" aria-label="Not now, dismiss suggestion">
+                  Not now
+                </button>
+                <button class="pb-btn pb-btn--pause" data-action="pause" aria-label="Pause suggestions for today">
+                  Pause today
+                </button>
+              </div>
+
+            </div>
+
+            ${this.opts.autoDissmiss ? `
+              <div class="pb-card__countdown" aria-hidden="true">
+                <div class="pb-countdown__bar" id="pb-countdown-bar"></div>
+              </div>
+              <span class="pb-sr-only" aria-live="polite" id="pb-announce"></span>
+            ` : ''}
+
+          </div>
+        `;
+      }
+
+      #bindEvents() {
+        this.#shadow.addEventListener('click', (e) => {
+          const action = e.target.closest('[data-action]')?.dataset.action;
+          if (!action) return;
+          e.preventDefault();
+          e.stopPropagation();
+          if (action === 'connect') this.#handleConnect();
+          if (action === 'dismiss') this.#handleDismiss();
+          if (action === 'pause')   this.#handlePause();
+        });
+
+        this.#shadow.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape') { e.preventDefault(); this.#handleDismiss(); }
+          if (e.key === 'Tab') this.#handleTabTrap(e);
+        });
+      }
+
+      #handleTabTrap(e) {
+        const focusable = [...this.#shadow.querySelectorAll('button')].filter(b => !b.disabled);
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        const active = this.#shadow.activeElement;
+        if (e.shiftKey && active === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && active === last) { e.preventDefault(); first.focus(); }
+      }
+
+      #handleConnect() {
+        const matchId = this.opts.matchData?.matchId ?? 'mock-001';
+        const contextToken = this.opts.matchData?.contextToken ?? 'ctx-mock';
+        console.log('[PeerBridge] Connect:', { match_id: matchId, context_token: contextToken });
+        this.opts.onConnect?.(matchId, contextToken);
+        alert(`[PeerBridge]\n\nOpening peer connection:\nmatch_id: ${matchId}\ncontext_token: ${contextToken}\n\n(In production, this opens a new tab to the peer connection page)`);
+        this.#dismiss('connect');
+      }
+
+      #handleDismiss() { this.#dismiss('manual'); }
+
+      #handlePause() {
+        this.opts.onPauseForToday?.();
+        console.log('[PeerBridge] Paused for today');
+        this.#dismiss('pause');
+      }
+
+      #dismiss(reason) {
+        if (this.#dismissed) return;
+        this.#dismissed = true;
+        if (this.#rafId) cancelAnimationFrame(this.#rafId);
+
+        const card = this.#shadow.querySelector('.pb-card');
+        if (card) {
+          card.classList.add('pb-card--dismissing');
+          card.addEventListener('animationend', () => {
+            this.#host?.remove();
+            this.opts.onDismiss?.(reason);
+          }, { once: true });
+        } else {
+          this.#host?.remove();
+          this.opts.onDismiss?.(reason);
+        }
+      }
+
+      #startCountdown() {
+        const duration = 30_000;
+        this.#countdownStart = performance.now();
+        let lastAnnounced = 30;
+
+        const tick = (now) => {
+          if (this.#dismissed) return;
+          const elapsed = now - this.#countdownStart;
+          const remaining = Math.max(0, duration - elapsed);
+          const pct = (remaining / duration) * 100;
+
+          const bar = this.#shadow.querySelector('#pb-countdown-bar');
+          if (bar) bar.style.width = `${pct}%`;
+
+          const secondsLeft = Math.ceil(remaining / 1000);
+          const announce = this.#shadow.querySelector('#pb-announce');
+          if (announce && secondsLeft !== lastAnnounced && (secondsLeft === 10 || secondsLeft === 5)) {
+            announce.textContent = `Suggestion dismissing in ${secondsLeft} seconds`;
+            lastAnnounced = secondsLeft;
+          }
+
+          if (remaining <= 0) { this.#dismiss('auto'); return; }
+          this.#rafId = requestAnimationFrame(tick);
+        };
+
+        this.#rafId = requestAnimationFrame(tick);
+      }
+
+      #getStyles() {
+        return `
+          :host {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 2147483647;
+            width: 320px;
+            max-width: calc(100vw - 48px);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+
+            --pb-bg:             rgba(255,255,255,0.93);
+            --pb-border:         rgba(0,0,0,0.08);
+            --pb-shadow:         0 8px 32px rgba(0,0,0,0.12),0 2px 8px rgba(0,0,0,0.08);
+            --pb-text-primary:   #0f0f10;
+            --pb-text-secondary: #5c5c6e;
+            --pb-text-muted:     #8b8b9e;
+            --pb-accent:         #4f46e5;
+            --pb-accent-hover:   #4338ca;
+            --pb-accent-text:    #ffffff;
+            --pb-dismiss-bg:     rgba(0,0,0,0.05);
+            --pb-dismiss-hover:  rgba(0,0,0,0.09);
+            --pb-dismiss-text:   #3d3d4d;
+            --pb-pause-text:     #6b6b7e;
+            --pb-avatar-bg:      #eef2ff;
+            --pb-avatar-text:    #4f46e5;
+            --pb-online-color:   #16a34a;
+            --pb-soon-color:     #d97706;
+            --pb-today-color:    #2563eb;
+            --pb-countdown-bg:   rgba(0,0,0,0.06);
+            --pb-countdown-fill: #4f46e5;
+            --pb-radius:         14px;
+            --pb-radius-sm:      8px;
+            --pb-radius-xs:      6px;
+          }
+
+          @media (prefers-color-scheme: dark) {
+            :host {
+              --pb-bg:             rgba(26,26,36,0.95);
+              --pb-border:         rgba(255,255,255,0.10);
+              --pb-shadow:         0 8px 32px rgba(0,0,0,0.5),0 2px 8px rgba(0,0,0,0.3),0 0 0 1px rgba(255,255,255,0.06);
+              --pb-text-primary:   #f0f0f5;
+              --pb-text-secondary: #a0a0b8;
+              --pb-text-muted:     #6e6e88;
+              --pb-accent:         #818cf8;
+              --pb-accent-hover:   #6366f1;
+              --pb-dismiss-bg:     rgba(255,255,255,0.07);
+              --pb-dismiss-hover:  rgba(255,255,255,0.12);
+              --pb-dismiss-text:   #c0c0d8;
+              --pb-pause-text:     #8080a0;
+              --pb-avatar-bg:      rgba(129,140,248,0.15);
+              --pb-avatar-text:    #818cf8;
+              --pb-online-color:   #4ade80;
+              --pb-soon-color:     #fbbf24;
+              --pb-today-color:    #60a5fa;
+              --pb-countdown-bg:   rgba(255,255,255,0.08);
+              --pb-countdown-fill: #818cf8;
+            }
+          }
+
+          *,*::before,*::after { box-sizing:border-box;margin:0;padding:0; }
+
+          .pb-card {
+            background: var(--pb-bg);
+            border: 1px solid var(--pb-border);
+            border-radius: var(--pb-radius);
+            box-shadow: var(--pb-shadow);
+            backdrop-filter: blur(20px) saturate(1.4);
+            -webkit-backdrop-filter: blur(20px) saturate(1.4);
+            overflow: hidden;
+            outline: none;
+            position: relative;
+            animation: pb-slide-in 0.28s cubic-bezier(0.34,1.56,0.64,1) forwards;
+          }
+
+          .pb-card:focus-visible {
+            box-shadow: var(--pb-shadow), 0 0 0 3px var(--pb-accent);
+          }
+
+          .pb-card--dismissing {
+            animation: pb-slide-out 0.22s cubic-bezier(0.4,0,1,1) forwards !important;
+          }
+
+          .pb-card__accent {
+            position: absolute; top:0; left:0; width:3px; height:100%;
+            background: linear-gradient(180deg,var(--pb-accent),var(--pb-accent-hover));
+            border-radius: var(--pb-radius) 0 0 var(--pb-radius);
+          }
+
+          .pb-card__inner {
+            padding: 14px 14px 14px 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+          }
+
+          .pb-card__header {
+            display: flex; align-items: flex-start; gap: 8px;
+          }
+
+          .pb-card__icon {
+            flex-shrink:0; width:28px; height:28px;
+            background: var(--pb-avatar-bg); color: var(--pb-accent);
+            border-radius: var(--pb-radius-xs);
+            display:flex; align-items:center; justify-content:center;
+            margin-top:1px;
+          }
+
+          .pb-card__suggestion {
+            flex:1; font-size:13px; font-weight:500; line-height:1.45;
+            color:var(--pb-text-primary); letter-spacing:-0.01em;
+          }
+
+          .pb-card__close {
+            flex-shrink:0; width:24px; height:24px;
+            border:none; background:transparent; color:var(--pb-text-muted);
+            cursor:pointer; border-radius:var(--pb-radius-xs);
+            display:flex; align-items:center; justify-content:center;
+            transition:background 0.15s,color 0.15s;
+            margin-top:-2px; margin-right:-2px;
+          }
+          .pb-card__close:hover { background:var(--pb-dismiss-bg); color:var(--pb-text-primary); }
+          .pb-card__close:focus-visible { outline:2px solid var(--pb-accent); outline-offset:1px; }
+
+          .pb-card__peer {
+            display:flex; align-items:center; gap:10px;
+            padding:9px 10px; background:var(--pb-dismiss-bg);
+            border-radius:var(--pb-radius-sm);
+          }
+
+          .pb-peer__avatar {
+            flex-shrink:0; width:34px; height:34px;
+            background:var(--pb-avatar-bg); color:var(--pb-avatar-text);
+            border-radius:50%; display:flex; align-items:center; justify-content:center;
+            font-size:12px; font-weight:700; letter-spacing:0.02em;
+          }
+
+          .pb-peer__info { flex:1; min-width:0; }
+
+          .pb-peer__domain {
+            display:block; font-size:12.5px; font-weight:600;
+            color:var(--pb-text-primary);
+            white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+          }
+
+          .pb-peer__meta {
+            display:flex; align-items:center; gap:5px; margin-top:2px;
+          }
+
+          .pb-peer__exp { font-size:11.5px; color:var(--pb-text-secondary); font-weight:500; }
+          .pb-peer__sep { color:var(--pb-text-muted); font-size:11px; }
+
+          .pb-peer__avail {
+            font-size:11.5px; font-weight:500;
+            display:flex; align-items:center; gap:4px;
+          }
+
+          .pb-avail__dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+
+          .pb-avail--online { color:var(--pb-online-color); }
+          .pb-avail--online .pb-avail__dot { background:var(--pb-online-color); }
+          .pb-avail--soon   { color:var(--pb-soon-color); }
+          .pb-avail--soon   .pb-avail__dot { background:var(--pb-soon-color); }
+          .pb-avail--today  { color:var(--pb-today-color); }
+          .pb-avail--today  .pb-avail__dot { background:var(--pb-today-color); }
+
+          .pb-card__actions {
+            display:flex; align-items:center; gap:6px;
+          }
+
+          .pb-btn {
+            border:none; cursor:pointer; font-family:inherit;
+            font-size:12.5px; font-weight:600;
+            border-radius:var(--pb-radius-xs);
+            transition:background 0.15s,transform 0.1s,box-shadow 0.15s;
+            white-space:nowrap;
+          }
+          .pb-btn:focus-visible { outline:2px solid var(--pb-accent); outline-offset:2px; }
+          .pb-btn:active { transform:scale(0.97); }
+
+          .pb-btn--connect {
+            padding:7px 14px; background:var(--pb-accent);
+            color:var(--pb-accent-text); flex-shrink:0; letter-spacing:-0.01em;
+          }
+          .pb-btn--connect:hover {
+            background:var(--pb-accent-hover);
+            box-shadow:0 2px 8px rgba(79,70,229,0.35);
+          }
+
+          .pb-btn--dismiss {
+            padding:7px 12px; background:var(--pb-dismiss-bg);
+            color:var(--pb-dismiss-text); flex-shrink:0;
+          }
+          .pb-btn--dismiss:hover { background:var(--pb-dismiss-hover); }
+
+          .pb-btn--pause {
+            padding:7px 0; background:transparent; color:var(--pb-pause-text);
+            margin-left:auto; font-weight:500; font-size:11.5px;
+            text-decoration:underline; text-underline-offset:2px;
+            text-decoration-color:transparent;
+            transition:text-decoration-color 0.15s,color 0.15s;
+          }
+          .pb-btn--pause:hover {
+            color:var(--pb-text-secondary);
+            text-decoration-color:var(--pb-text-muted);
+          }
+
+          .pb-card__countdown {
+            height:3px; background:var(--pb-countdown-bg);
+            position:relative; overflow:hidden;
+          }
+
+          .pb-countdown__bar {
+            position:absolute; top:0; left:0; height:100%; width:100%;
+            background:var(--pb-countdown-fill);
+            transition:width 0.1s linear;
+            border-radius:0 2px 2px 0;
+          }
+
+          @keyframes pb-slide-in {
+            from { opacity:0; transform:translateY(12px) scale(0.97); }
+            to   { opacity:1; transform:translateY(0)    scale(1);    }
+          }
+
+          @keyframes pb-slide-out {
+            from { opacity:1; transform:translateY(0)   scale(1);    }
+            to   { opacity:0; transform:translateY(8px) scale(0.96); }
+          }
+
+          .pb-sr-only {
+            position:absolute; width:1px; height:1px; padding:0;
+            margin:-1px; overflow:hidden; clip:rect(0,0,0,0);
+            white-space:nowrap; border:0;
+          }
+
+          @media (prefers-reduced-motion: reduce) {
+            .pb-card, .pb-card--dismissing { animation:none !important; }
+            .pb-countdown__bar { transition:none; }
+          }
+        `;
+      }
+    }
+
+    // ─── Mock peer data ──────────────────────────────────────────────────────────
+
+    const MOCK_PEERS = {
+      search: {
+        matchId: 'peer_001',
+        domain: 'Career Transitions',
+        yearsExperience: 8,
+        availability: 'Available now',
+        availabilitySignal: 'online',
+        contextToken: 'ctx_srch_abc123',
+        suggestionPrompt: 'Someone who navigated this exact crossroads is available.',
+      },
+      ai_chat: {
+        matchId: 'peer_002',
+        domain: 'Financial Planning',
+        yearsExperience: 12,
+        availability: 'Responds within 2 hrs',
+        availabilitySignal: 'soon',
+        contextToken: 'ctx_ai_def456',
+      },
+      form: {
+        matchId: 'peer_003',
+        domain: 'Immigration & Visas',
+        yearsExperience: 5,
+        availability: 'Available today',
+        availabilitySignal: 'today',
+        contextToken: 'ctx_form_ghi789',
+        suggestionPrompt: 'Real experience beats another search result.',
+      },
+    };
+
+    // ─── Demo wiring ─────────────────────────────────────────────────────────────
+
+    function showCard(type) {
+      const autoDissmiss = type === 'ai_chat';
+      const card = new SuggestionCard({
+        matchData: MOCK_PEERS[type],
+        pageType: type,
+        autoDissmiss,
+        onDismiss: (reason) => console.log(`[PeerBridge] Dismissed: ${reason}`),
+        onPauseForToday: () => console.log('[PeerBridge] Paused for today'),
+      });
+      card.mount();
+    }
+
+    document.getElementById('btn-search').addEventListener('click', () => showCard('search'));
+    document.getElementById('btn-ai').addEventListener('click', () => showCard('ai_chat'));
+    document.getElementById('btn-form').addEventListener('click', () => showCard('form'));
+    document.getElementById('btn-dismiss').addEventListener('click', () => {
+      document.getElementById('pb-card-host')?.remove();
+    });
+
+    // Show search card by default after short delay
+    setTimeout(() => showCard('search'), 600);
+  </script>
+</body>
+</html>
