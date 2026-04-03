@@ -3,6 +3,9 @@ Sapience.ai hiring assignment - Saif
 
 # HIRING ASSIGNMENT README
 
+# Loom Video Link
+Hey, i just shared and explained the assignment in a video link here: https://www.loom.com/share/d931c779d1514f7d82eea8065e74fde2
+
 ### Part A  Figma Mockups (open in browser: link/pdf)
 1. Open foler → `1. Figma Mockups`
 2. Open `Figma Mockups.pdf` to view all the pages in 1 pdf
